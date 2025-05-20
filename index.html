@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mapa Sonoro de Suba</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .audio-marker {
+            background-color: #e74c3c;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([4.7415, -74.0757], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        function crearMarcador(lat, lng, nombre, driveId) {
+            const icono = L.divIcon({
+                className: 'audio-marker',
+                html: '<i class="fas fa-volume-up"></i>',
+                iconSize: [32, 32]
+            });
+
+            L.marker([lat, lng], {icon: icono})
+                .bindPopup(
+                    `<b>${nombre}</b><br>
+                    <iframe src="https://drive.google.com/file/d/${driveId}/preview" 
+                            width="300" height="100" allow="autoplay"></iframe>`
+                )
+                .addTo(map);
+        }
+
+        crearMarcador(4.755327, -74.064249, 'Moto', '1Lzgnj5VjFNWzFfKg8kJlAZP7uF_2wJ3q');
+        crearMarcador(4.756855, -74.062769, 'Pasos JMSD', '1JdrtW12hGHJ2hbZtquTEzOZ6s-dUgRrY');
+        crearMarcador(4.755505, -74.063495, 'Parque', '1pNOwztVQi2P0pCeZ3Kub1NT375Id0bfA');
+        crearMarcador(4.755497, -74.063520, 'Cadena', '1D6B4Ll4Yka2XAw5Hi20HbfRj0kUgiyLl');
+        crearMarcador(4.756202, -74.063144, 'Adoquines', '1kJSz6uhG1CjWo5n_pYmf7lDqP6U_R66T');
+    </script>
+</body>
+</html>
