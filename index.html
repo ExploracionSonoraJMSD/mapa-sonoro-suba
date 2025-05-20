@@ -1,18 +1,32 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>Mapa Sonoro de Suba</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+    />
     <style>
         body, html {
             margin: 0;
             padding: 0;
             font-family: 'Arial', sans-serif;
+            height: 100%;
+            overflow: hidden;
+        }
+        #title-bar {
+            background-color: #2c3e50;
+            color: white;
+            padding: 1rem 1.5rem;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            user-select: none;
         }
         #map {
-            height: 100vh;
+            height: calc(100vh - 60px);
             width: 100%;
         }
         .audio-marker {
@@ -25,14 +39,35 @@
             justify-content: center;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
+        /* Responsive */
+        @media (max-width: 600px) {
+            #title-bar {
+                padding: 0.8rem 1rem;
+                font-size: 1.1rem;
+            }
+            #map {
+                height: calc(100vh - 50px);
+            }
+            /* Ajustar iframe dentro del popup para que no desborde */
+            .leaflet-popup-content iframe {
+                width: 100% !important;
+                height: auto !important;
+                max-height: 120px;
+            }
+        }
     </style>
 </head>
 <body>
+    <div id="title-bar">
+        <h1>Mapa Sonoro de Suba</h1>
+    </div>
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
-        var map = L.map('map').setView([4.7415, -74.0757], 13);
+        const map = L.map('map').setView([4.7415, -74.0757], 13);
+        const bounds = [];
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap'
         }).addTo(map);
@@ -40,24 +75,71 @@
         function crearMarcador(lat, lng, nombre, driveId) {
             const icono = L.divIcon({
                 className: 'audio-marker',
-                html: '<i class="fas fa-volume-up"></i>',
+                html: '<i class="fas fa-volume-up" style="color:white;"></i>',
                 iconSize: [32, 32]
             });
 
-            L.marker([lat, lng], {icon: icono})
-                .bindPopup(
-                    `<b>${nombre}</b><br>
-                    <iframe src="https://drive.google.com/file/d/${driveId}/preview" 
-                            width="300" height="100" allow="autoplay"></iframe>`
-                )
+            L.marker([lat, lng], { icon: icono })
+                .bindPopup(`
+                    <b>${nombre}</b><br/>
+                    <iframe src="https://drive.google.com/file/d/${driveId}/preview"
+                            allow="autoplay"
+                            frameborder="0"
+                            scrolling="no"
+                            width="300"
+                            height="100">
+                    </iframe>
+                `)
                 .addTo(map);
+
+            bounds.push([lat, lng]);
         }
 
-        crearMarcador(4.755327, -74.064249, 'Moto', '1Lzgnj5VjFNWzFfKg8kJlAZP7uF_2wJ3q');
-        crearMarcador(4.756855, -74.062769, 'Pasos JMSD', '1JdrtW12hGHJ2hbZtquTEzOZ6s-dUgRrY');
-        crearMarcador(4.755505, -74.063495, 'Parque', '1pNOwztVQi2P0pCeZ3Kub1NT375Id0bfA');
-        crearMarcador(4.755497, -74.063520, 'Cadena', '1D6B4Ll4Yka2XAw5Hi20HbfRj0kUgiyLl');
-        crearMarcador(4.756202, -74.063144, 'Adoquines', '1kJSz6uhG1CjWo5n_pYmf7lDqP6U_R66T');
+        function parseGoogleSheetJSON(responseText) {
+            const start = responseText.indexOf('(') + 1;
+            const end = responseText.lastIndexOf(')');
+            const jsonStr = responseText.substring(start, end);
+            return JSON.parse(jsonStr);
+        }
+
+        function cargarDatos() {
+            const baseUrl = 'https://docs.google.com/spreadsheets/d/1PJbx4O2kEqKlWPwH49D7yizYIw-hbtn7ixm5-lZdtrU/gviz/tq?sheet=Hoja%201&tqx=out:json';
+            const url = baseUrl + '&nocache=' + Date.now();
+
+            fetch(url, { cache: 'no-store' })
+                .then(res => res.text())
+                .then(text => {
+                    const json = parseGoogleSheetJSON(text);
+                    const rows = json.table.rows;
+
+                    rows.forEach(row => {
+                        const lat = parseFloat(row.c[0]?.v);
+                        const lng = parseFloat(row.c[1]?.v);
+                        const nombre = row.c[2]?.v || 'Sin nombre';
+                        const sonidoURL = row.c[4]?.v || '';
+
+                        if (!isNaN(lat) && !isNaN(lng) && sonidoURL.includes('drive.google.com')) {
+                            const match = sonidoURL.match(/[-\w]{25,}/);
+                            const fileID = match ? match[0] : null;
+
+                            if (fileID) {
+                                crearMarcador(lat, lng, nombre, fileID);
+                            }
+                        }
+                    });
+
+                    if (bounds.length > 0) {
+                        map.fitBounds(bounds, { padding: [30, 30] });
+                    } else {
+                        console.warn('No se cargaron puntos al mapa.');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error al cargar la hoja de cálculo:', err);
+                });
+        }
+
+        cargarDatos();
     </script>
 </body>
 </html>
