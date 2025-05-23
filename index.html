@@ -195,10 +195,26 @@
             height: 100px;
         }
 
-        /* Video específico (relación 16:9) */
+        /* Video específico */
         .video-iframe {
-            width: 560px;
-            height: 315px;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16/9;
+        }
+
+        /* Estilos para el contenedor de video */
+        .video-container {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        /* Estilos para videos verticales */
+        .video-iframe.vertical {
+            aspect-ratio: 9/16;
+            height: 70vh;
+            max-height: 560px;
+            min-height: 300px;
         }
 
         .leaflet-container a.leaflet-popup-close-button {
@@ -227,7 +243,10 @@
 
             .video-iframe {
                 width: 80vw !important;
-                height: calc(80vw * 9 / 16) !important;
+            }
+
+            .video-iframe.vertical {
+                height: 50vh !important;
             }
 
             .audio-title {
@@ -258,7 +277,10 @@
 
             .video-iframe {
                 width: 85vw !important;
-                height: calc(85vw * 9 / 16) !important;
+            }
+
+            .video-iframe.vertical {
+                height: 40vh !important;
             }
 
             .audio-title {
@@ -412,7 +434,7 @@
                    url.match(/\.(mp4|webm|ogg|mov)$/i) !== null;
         }
 
-        // Función para crear marcadores con ajuste automático
+        // Función para crear marcadores con ajuste automático de orientación
         function crearMarcador(lat, lng, nombre, mediaUrl) {
             const icono = L.divIcon({
                 className: 'audio-marker',
@@ -434,26 +456,106 @@
             }
             
             const isVideo = esVideo(embedUrl);
-            const iframeClass = isVideo ? 'video-iframe' : 'audio-iframe';
+            let popupContent;
             
-            const marker = L.marker([lat, lng], {icon: icono})
-                .bindPopup(`
+            if (isVideo) {
+                // Para videos, usamos un contenedor flexible
+                popupContent = `
                     <div class="audio-container">
                         <div class="audio-title">${nombre}</div>
-                        <iframe class="media-iframe ${iframeClass}" 
+                        <div class="video-container">
+                            <iframe class="media-iframe video-iframe" 
+                                    src="${embedUrl}" 
+                                    allow="autoplay"
+                                    frameborder="0"
+                                    allowfullscreen>
+                            </iframe>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Para audio, mantenemos el formato actual
+                popupContent = `
+                    <div class="audio-container">
+                        <div class="audio-title">${nombre}</div>
+                        <iframe class="media-iframe audio-iframe" 
                                 src="${embedUrl}" 
                                 allow="autoplay"
-                                frameborder="0"
-                                allowfullscreen>
+                                frameborder="0">
                         </iframe>
                     </div>
-                `, {
+                `;
+            }
+            
+            const marker = L.marker([lat, lng], {icon: icono})
+                .bindPopup(popupContent, {
                     className: 'custom-popup',
                     maxWidth: isVideo ? 560 : 400
                 })
                 .addTo(map);
 
-            marker.on('popupopen', function() {
+            marker.on('popupopen', function(e) {
+                const popup = e.popup;
+                const iframe = popup.getElement().querySelector('iframe.video-iframe');
+                
+                if (iframe && isVideo) {
+                    // Función para detectar y ajustar la orientación del video
+                    const adjustVideoOrientation = () => {
+                        // Para videos de YouTube
+                        if (iframe.src.includes('youtube.com') || iframe.src.includes('youtu.be')) {
+                            // YouTube maneja bien su relación de aspecto
+                            iframe.classList.remove('vertical');
+                        } 
+                        // Para videos de Google Drive u otros
+                        else {
+                            // Intentamos detectar la orientación
+                            try {
+                                const tempIframe = document.createElement('iframe');
+                                tempIframe.src = iframe.src;
+                                tempIframe.style.display = 'none';
+                                document.body.appendChild(tempIframe);
+                                
+                                tempIframe.onload = function() {
+                                    try {
+                                        const video = tempIframe.contentDocument?.querySelector('video');
+                                        if (video) {
+                                            video.onloadedmetadata = function() {
+                                                const isVertical = video.videoHeight > video.videoWidth;
+                                                if (isVertical) {
+                                                    iframe.classList.add('vertical');
+                                                } else {
+                                                    iframe.classList.remove('vertical');
+                                                }
+                                                document.body.removeChild(tempIframe);
+                                            };
+                                        } else {
+                                            // Si no podemos detectar, asumimos horizontal
+                                            iframe.classList.remove('vertical');
+                                            document.body.removeChild(tempIframe);
+                                        }
+                                    } catch (e) {
+                                        // Si hay error de CORS, asumimos horizontal
+                                        iframe.classList.remove('vertical');
+                                        document.body.removeChild(tempIframe);
+                                    }
+                                };
+                            } catch (e) {
+                                // Si falla la creación del iframe temporal
+                                iframe.classList.remove('vertical');
+                            }
+                        }
+                    };
+                    
+                    // Ajustar inicialmente
+                    adjustVideoOrientation();
+                    
+                    // También ajustar cuando cambia el tamaño
+                    const resizeObserver = new ResizeObserver(() => {
+                        adjustVideoOrientation();
+                    });
+                    resizeObserver.observe(popup.getElement());
+                }
+                
                 setTimeout(() => {
                     map.invalidateSize();
                 }, 50);
