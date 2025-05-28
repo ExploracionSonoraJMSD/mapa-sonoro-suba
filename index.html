@@ -8,12 +8,18 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap">
     <style>
-        body, html {
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
+        }
+        
+        body, html {
+            height: 100%;
             font-family: 'Montserrat', sans-serif;
             color: #333;
-            background-color: #f8f9fa;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            overflow: hidden;
         }
 
         /* Header */
@@ -25,13 +31,16 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             position: relative;
             z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         #title-bar h1 {
-            margin: 0;
             font-weight: 600;
             letter-spacing: 0.5px;
             font-size: 1.8rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
         /* Map Container */
@@ -39,11 +48,13 @@
             position: relative;
             height: calc(100vh - 80px);
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            overflow: hidden;
         }
 
         #map {
             height: 100%;
             width: 100%;
+            z-index: 100;
         }
 
         /* Markers */
@@ -125,7 +136,7 @@
             cursor: pointer;
             padding: 6px 10px;
             border-radius: 6px;
-            transition: background 0.2s ease;
+            transition: all 0.2s ease;
         }
 
         .layer-option:hover {
@@ -134,6 +145,7 @@
 
         .layer-option.active {
             background: #e9f0ff;
+            box-shadow: inset 0 0 0 2px #3867d6;
         }
 
         .layer-color {
@@ -141,6 +153,7 @@
             height: 16px;
             border-radius: 50%;
             margin-right: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
 
         /* Info Box */
@@ -154,6 +167,8 @@
             box-shadow: 0 4px 16px rgba(0,0,0,0.15);
             max-width: 280px;
             z-index: 1000;
+            backdrop-filter: blur(5px);
+            background-color: rgba(255, 255, 255, 0.9);
         }
 
         .info-box h3 {
@@ -167,6 +182,7 @@
             margin: 0;
             font-size: 0.9rem;
             line-height: 1.5;
+            color: #555;
         }
 
         /* Legend */
@@ -179,6 +195,8 @@
             border-radius: 12px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.15);
             z-index: 1000;
+            backdrop-filter: blur(5px);
+            background-color: rgba(255, 255, 255, 0.9);
         }
 
         .legend-item {
@@ -193,6 +211,7 @@
             height: 16px;
             border-radius: 50%;
             margin-right: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
 
         /* Popup Styles */
@@ -220,6 +239,7 @@
             font-size: 1.1em;
             font-weight: 500;
             margin: 0;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
 
         .media-iframe {
@@ -261,6 +281,7 @@
             right: 15px;
             color: white;
             font-size: 18px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
         }
 
         /* Responsive Styles */
@@ -299,13 +320,13 @@
                 padding: 12px;
                 font-size: 1em;
             }
-        }
-
-        @media (max-width: 480px) {
+            
             #title-bar h1 {
                 font-size: 1.5rem;
             }
+        }
 
+        @media (max-width: 480px) {
             .controls, .layer-controls {
                 top: 10px;
                 padding: 8px;
@@ -340,6 +361,10 @@
             .audio-title {
                 padding: 10px;
             }
+            
+            #title-bar h1 {
+                font-size: 1.3rem;
+            }
         }
 
         /* Efecto de carga inicial */
@@ -349,7 +374,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(255, 255, 255, 0.9);
+            background-color: rgba(255, 255, 255, 0.95);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -359,6 +384,10 @@
 
         .loader-content {
             text-align: center;
+            padding: 30px;
+            border-radius: 16px;
+            background: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
         }
 
         .loader-spinner {
@@ -379,12 +408,32 @@
         .loader h2 {
             color: #3867d6;
             font-weight: 500;
+            margin-bottom: 10px;
+        }
+        
+        .loader p {
+            color: #666;
+            font-size: 0.9rem;
+            max-width: 300px;
+            margin: 0 auto;
+        }
+        
+        /* Watermark */
+        .watermark {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(0,0,0,0.4);
+            font-size: 0.8rem;
+            z-index: 500;
+            text-align: center;
         }
     </style>
 </head>
 <body>
     <div id="title-bar">
-        <h1>Mapa Sonoro de Suba</h1>
+        <h1><i class="fas fa-map-marker-alt"></i> Mapa Sonoro de Suba</h1>
     </div>
 
     <div id="map-container">
@@ -402,27 +451,27 @@
         <div class="layer-controls">
             <div class="layer-option active" data-layer="markers">
                 <div class="layer-color" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5253 100%);"></div>
-                <span>Puntos de audio</span>
+                <span>Puntos de escucha</span>
             </div>
             <div class="layer-option active" data-layer="polygons">
                 <div class="layer-color" style="background: linear-gradient(135deg, #3867d6 0%, #4b7bec 100%);"></div>
-                <span>Áreas sonoras</span>
+                <span>Sentires sonoros</span>
             </div>
         </div>
 
         <div class="info-box">
-            <h3>Mapa Sonoro</h3>
-            <p>Explora los sonidos de la localidad de Suba. Activa/desactiva capas según tu interés.</p>
+            <h3><i class="fas fa-info-circle"></i> Mapa Sonoro</h3>
+            <p>Explora los sonidos de la localidad de Suba. Activa o desactiva capas según tu interés.</p>
         </div>
 
         <div class="legend">
             <div class="legend-item">
                 <div class="legend-color" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5253 100%);"></div>
-                <span>Punto de audio</span>
+                <span>Punto de escucha</span>
             </div>
             <div class="legend-item">
                 <div class="legend-color" style="background: linear-gradient(135deg, #3867d6 0%, #4b7bec 100%);"></div>
-                <span>Área sonora</span>
+                <span>Sentir sonoros</span>
             </div>
             <div class="legend-item">
                 <div class="legend-color" style="background: green;"></div>
@@ -433,9 +482,12 @@
         <div class="loader">
             <div class="loader-content">
                 <div class="loader-spinner"></div>
-                <h2>Cargando mapa...</h2>
+                <h2>Cargando mapa sonoro...</h2>
+                <p>Recuperando sonoridades de Suba</p>
             </div>
         </div>
+        
+        <div class="watermark">Mapa Sonoro de Suba &copy; 2025</div>
     </div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -447,7 +499,8 @@
         
         // Inicializar mapa con vista por defecto
         const map = L.map('map', {
-            zoomControl: false
+            zoomControl: false,
+            preferCanvas: true // Mejor rendimiento para muchos elementos
         }).setView([4.7415, -74.0757], 13);
         
         // Reposicionar controles de zoom
@@ -485,29 +538,35 @@
                         // Añadir nuevo marcador
                         const userMarker = L.marker([userLat, userLng], {
                             icon: L.divIcon({
-                                html: '<i class="fas fa-user" style="background-color: green; color: white; padding: 8px; border-radius: 50%; font-size: 14px;"></i>',
+                                html: '<i class="fas fa-user" style="background-color: green; color: white; padding: 8px; border-radius: 50%; font-size: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></i>',
                                 iconSize: [36, 36],
                                 iconAnchor: [18, 18],
                                 className: 'user-location'
                             })
                         }).addTo(map);
                         
-                        userMarker.bindPopup("<div class='audio-title'>Tu ubicación actual</div>").openPopup();
+                        userMarker.bindPopup("<div class='audio-title'><i class='fas fa-map-pin'></i> Tu ubicación actual</div>").openPopup();
+                        
+                        // Centrar el mapa en la ubicación del usuario
                         map.setView([userLat, userLng], 16);
                     },
                     function() {
-                        alert("No fue posible obtener tu ubicación");
+                        alert("No fue posible obtener tu ubicación. Por favor asegúrate de haber concedido los permisos necesarios.");
+                    },
+                    {
+                        timeout: 10000 // 10 segundos de timeout
                     }
                 );
             } else {
-                alert("Tu navegador no soporta geolocalización");
+                alert("Tu navegador no soporta geolocalización. Por favor actualízalo o usa un navegador más moderno.");
             }
         });
 
         // Función para determinar si es video
         function esVideo(url) {
-            return url?.includes('youtube.com') || url?.includes('youtu.be') || 
-                   url?.match(/\.(mp4|webm|ogg|mov)$/i) !== null;
+            if (!url) return false;
+            return url.includes('youtube.com') || url.includes('youtu.be') || 
+                   url.match(/\.(mp4|webm|ogg|mov)$/i) !== null;
         }
 
         // Función para crear marcadores de audio/video
@@ -537,7 +596,7 @@
             if (isVideo) {
                 popupContent = `
                     <div class="audio-container">
-                        <div class="audio-title">${nombre}</div>
+                        <div class="audio-title"><i class="fas fa-video"></i> ${nombre}</div>
                         <div class="video-container">
                             <iframe class="media-iframe video-iframe" 
                                     src="${embedUrl}" 
@@ -551,7 +610,7 @@
             } else {
                 popupContent = `
                     <div class="audio-container">
-                        <div class="audio-title">${nombre}</div>
+                        <div class="audio-title"><i class="fas fa-volume-up"></i> ${nombre}</div>
                         <iframe class="media-iframe audio-iframe" 
                                 src="${embedUrl}" 
                                 allow="autoplay"
@@ -630,7 +689,7 @@
                 
                 // Crear contenido del popup
                 let popupContent = `<div class="audio-container">`;
-                popupContent += `<div class="audio-title">${nombre || 'Área sonora'}</div>`;
+                popupContent += `<div class="audio-title"><i class="fas fa-shapes"></i> ${nombre || 'Sentires sonoros'}</div>`;
                 
                 if (mediaUrl) {
                     // Procesar URL de Google Drive
@@ -664,7 +723,7 @@
                         `;
                     }
                 } else {
-                    popupContent += `<p style="padding: 15px; margin: 0;">No hay contenido multimedia asociado</p>`;
+                    popupContent += `<p style="padding: 15px; margin: 0; text-align: center; color: #666;">No hay contenido multimedia asociado</p>`;
                 }
                 
                 popupContent += `</div>`;
@@ -712,7 +771,7 @@
                 const group = L.featureGroup(activeLayers);
                 map.fitBounds(group.getBounds(), { padding: [50, 50] });
             } else {
-                alert("No hay elementos visibles para mostrar");
+                alert("No hay elementos visibles para mostrar. Activa al menos una capa.");
             }
         });
 
@@ -740,9 +799,6 @@
                 }
             });
         });
-
-        // Activar ambas capas por defecto
-        document.querySelectorAll('.layer-option').forEach(opt => opt.classList.add('active'));
 
         // Función para parsear la respuesta de Google Sheets
         function parseGoogleSheetJSON(responseText) {
@@ -786,9 +842,14 @@
             const sheet1Url = 'https://docs.google.com/spreadsheets/d/1PJbx4O2kEqKlWPwH49D7yizYIw-hbtn7ixm5-lZdtrU/gviz/tq?sheet=Hoja%201&tqx=out:json';
             
             fetch(sheet1Url)
-                .then(res => res.text())
+                .then(res => {
+                    if (!res.ok) throw new Error("Error al cargar marcadores");
+                    return res.text();
+                })
                 .then(text => {
                     const json = parseGoogleSheetJSON(text);
+                    if (!json.table || !json.table.rows) return;
+                    
                     json.table.rows.forEach(row => {
                         const lat = parseFloat(row.c[0]?.v);
                         const lng = parseFloat(row.c[1]?.v);
@@ -804,9 +865,14 @@
                     const sheet2Url = sheet1Url.replace('Hoja%201', 'Hoja%202');
                     return fetch(sheet2Url);
                 })
-                .then(res => res.text())
+                .then(res => {
+                    if (!res.ok) throw new Error("Error al cargar polígonos");
+                    return res.text();
+                })
                 .then(text => {
                     const json = parseGoogleSheetJSON(text);
+                    if (!json.table || !json.table.rows) return;
+                    
                     json.table.rows.forEach(row => {
                         const geoJson = row.c[0]?.v;
                         const nombre = row.c[1]?.v;
@@ -826,14 +892,20 @@
                         // Ajustar vista para mostrar todos los elementos
                         const allElements = [...allMarkers, ...allPolygons];
                         if (allElements.length > 0) {
-                            map.fitBounds(L.featureGroup(allElements).getBounds(), { padding: [50, 50] });
+                            map.fitBounds(L.featureGroup(allElements).getBounds(), { 
+                                padding: [50, 50],
+                                maxZoom: 15
+                            });
                         }
                     }, 500);
                 })
                 .catch(err => {
                     console.error("Error al cargar datos:", err);
                     loader.style.opacity = '0';
-                    setTimeout(() => loader.style.display = 'none', 500);
+                    setTimeout(() => {
+                        loader.style.display = 'none';
+                        alert("Ocurrió un error al cargar los datos. Por favor intenta recargar la página.");
+                    }, 500);
                 });
         }
 
