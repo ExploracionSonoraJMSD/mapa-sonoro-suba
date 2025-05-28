@@ -104,6 +104,45 @@
             transform: translateY(0);
         }
 
+        /* Layer Controls */
+        .layer-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .layer-option {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 6px;
+            transition: background 0.2s ease;
+        }
+
+        .layer-option:hover {
+            background: #f5f5f5;
+        }
+
+        .layer-option.active {
+            background: #e9f0ff;
+        }
+
+        .layer-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
         /* Info Box */
         .info-box {
             position: absolute;
@@ -226,10 +265,17 @@
 
         /* Responsive Styles */
         @media (max-width: 768px) {
-            .controls {
+            .controls, .layer-controls {
                 top: 15px;
-                right: 15px;
                 padding: 10px;
+            }
+            
+            .controls {
+                right: 15px;
+            }
+            
+            .layer-controls {
+                left: 15px;
             }
 
             .info-box, .legend {
@@ -260,9 +306,17 @@
                 font-size: 1.5rem;
             }
 
-            .controls {
+            .controls, .layer-controls {
                 top: 10px;
+                padding: 8px;
+            }
+            
+            .controls {
                 right: 10px;
+            }
+            
+            .layer-controls {
+                left: 10px;
             }
 
             .control-button {
@@ -344,16 +398,31 @@
                 <i class="fas fa-map"></i> Ver Todos
             </button>
         </div>
+        
+        <div class="layer-controls">
+            <div class="layer-option active" data-layer="markers">
+                <div class="layer-color" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5253 100%);"></div>
+                <span>Puntos de audio</span>
+            </div>
+            <div class="layer-option active" data-layer="polygons">
+                <div class="layer-color" style="background: linear-gradient(135deg, #3867d6 0%, #4b7bec 100%);"></div>
+                <span>Áreas sonoras</span>
+            </div>
+        </div>
 
         <div class="info-box">
             <h3>Mapa Sonoro</h3>
-            <p>Explora los sonidos de la localidad de Suba haciendo clic en los marcadores rojos.</p>
+            <p>Explora los sonidos de la localidad de Suba. Activa/desactiva capas según tu interés.</p>
         </div>
 
         <div class="legend">
             <div class="legend-item">
                 <div class="legend-color" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5253 100%);"></div>
                 <span>Punto de audio</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #3867d6 0%, #4b7bec 100%);"></div>
+                <span>Área sonora</span>
             </div>
             <div class="legend-item">
                 <div class="legend-color" style="background: green;"></div>
@@ -374,10 +443,11 @@
         // Mostrar loader al inicio
         const loader = document.querySelector('.loader');
         const allMarkers = [];
+        const allPolygons = [];
         
         // Inicializar mapa con vista por defecto
-        var map = L.map('map', {
-            zoomControl: false // Quitar controles de zoom predeterminados
+        const map = L.map('map', {
+            zoomControl: false
         }).setView([4.7415, -74.0757], 13);
         
         // Reposicionar controles de zoom
@@ -385,29 +455,35 @@
             position: 'bottomright'
         }).addTo(map);
         
-        // Capa base mejorada - OpenStreetMap
+        // Capa base - OpenStreetMap
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap Contributors',
             maxZoom: 19
         }).addTo(map);
+
+        // Grupos de capas
+        const layerGroups = {
+            markers: L.layerGroup().addTo(map),
+            polygons: L.layerGroup().addTo(map)
+        };
 
         // Función para mostrar la ubicación del usuario
         document.getElementById('find-me').addEventListener('click', function() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     function(position) {
-                        var userLat = position.coords.latitude;
-                        var userLng = position.coords.longitude;
+                        const userLat = position.coords.latitude;
+                        const userLng = position.coords.longitude;
                         
                         // Eliminar marcador anterior si existe
                         map.eachLayer(function(layer) {
-                            if (layer.options && layer.options.icon && layer.options.icon.options && layer.options.icon.options.className === 'user-location') {
+                            if (layer.options?.icon?.options?.className === 'user-location') {
                                 map.removeLayer(layer);
                             }
                         });
                         
-                        // Añadir nuevo marcador con pulso
-                        var userMarker = L.marker([userLat, userLng], {
+                        // Añadir nuevo marcador
+                        const userMarker = L.marker([userLat, userLng], {
                             icon: L.divIcon({
                                 html: '<i class="fas fa-user" style="background-color: green; color: white; padding: 8px; border-radius: 50%; font-size: 14px;"></i>',
                                 iconSize: [36, 36],
@@ -430,11 +506,11 @@
 
         // Función para determinar si es video
         function esVideo(url) {
-            return url.includes('youtube.com') || url.includes('youtu.be') || 
-                   url.match(/\.(mp4|webm|ogg|mov)$/i) !== null;
+            return url?.includes('youtube.com') || url?.includes('youtu.be') || 
+                   url?.match(/\.(mp4|webm|ogg|mov)$/i) !== null;
         }
 
-        // Función para crear marcadores con ajuste automático de orientación
+        // Función para crear marcadores de audio/video
         function crearMarcador(lat, lng, nombre, mediaUrl) {
             const icono = L.divIcon({
                 className: 'audio-marker',
@@ -445,9 +521,9 @@
                 iconAnchor: [18, 18]
             });
             
-            // Extraer ID de Google Drive o usar URL directa
+            // Procesar URL de Google Drive
             let embedUrl = mediaUrl;
-            if (mediaUrl.includes('drive.google.com')) {
+            if (mediaUrl?.includes('drive.google.com')) {
                 const match = mediaUrl.match(/[-\w]{25,}/);
                 const fileID = match ? match[0] : null;
                 if (fileID) {
@@ -459,7 +535,6 @@
             let popupContent;
             
             if (isVideo) {
-                // Para videos, usamos un contenedor flexible
                 popupContent = `
                     <div class="audio-container">
                         <div class="audio-title">${nombre}</div>
@@ -474,7 +549,6 @@
                     </div>
                 `;
             } else {
-                // Para audio, mantenemos el formato actual
                 popupContent = `
                     <div class="audio-container">
                         <div class="audio-title">${nombre}</div>
@@ -492,23 +566,18 @@
                     className: 'custom-popup',
                     maxWidth: isVideo ? 560 : 400
                 })
-                .addTo(map);
+                .addTo(layerGroups.markers);
 
+            // Manejo de videos verticales
             marker.on('popupopen', function(e) {
                 const popup = e.popup;
-                const iframe = popup.getElement().querySelector('iframe.video-iframe');
+                const iframe = popup.getElement()?.querySelector('iframe.video-iframe');
                 
                 if (iframe && isVideo) {
-                    // Función para detectar y ajustar la orientación del video
                     const adjustVideoOrientation = () => {
-                        // Para videos de YouTube
                         if (iframe.src.includes('youtube.com') || iframe.src.includes('youtu.be')) {
-                            // YouTube maneja bien su relación de aspecto
                             iframe.classList.remove('vertical');
-                        } 
-                        // Para videos de Google Drive u otros
-                        else {
-                            // Intentamos detectar la orientación
+                        } else {
                             try {
                                 const tempIframe = document.createElement('iframe');
                                 tempIframe.src = iframe.src;
@@ -520,152 +589,256 @@
                                         const video = tempIframe.contentDocument?.querySelector('video');
                                         if (video) {
                                             video.onloadedmetadata = function() {
-                                                const isVertical = video.videoHeight > video.videoWidth;
-                                                if (isVertical) {
-                                                    iframe.classList.add('vertical');
-                                                } else {
-                                                    iframe.classList.remove('vertical');
-                                                }
+                                                iframe.classList.toggle('vertical', video.videoHeight > video.videoWidth);
                                                 document.body.removeChild(tempIframe);
                                             };
                                         } else {
-                                            // Si no podemos detectar, asumimos horizontal
                                             iframe.classList.remove('vertical');
                                             document.body.removeChild(tempIframe);
                                         }
                                     } catch (e) {
-                                        // Si hay error de CORS, asumimos horizontal
                                         iframe.classList.remove('vertical');
                                         document.body.removeChild(tempIframe);
                                     }
                                 };
                             } catch (e) {
-                                // Si falla la creación del iframe temporal
                                 iframe.classList.remove('vertical');
                             }
                         }
                     };
                     
-                    // Ajustar inicialmente
                     adjustVideoOrientation();
-                    
-                    // También ajustar cuando cambia el tamaño
-                    const resizeObserver = new ResizeObserver(() => {
-                        adjustVideoOrientation();
-                    });
+                    const resizeObserver = new ResizeObserver(adjustVideoOrientation);
                     resizeObserver.observe(popup.getElement());
                 }
                 
-                setTimeout(() => {
-                    map.invalidateSize();
-                }, 50);
+                setTimeout(() => map.invalidateSize(), 50);
             });
             
             allMarkers.push(marker);
             return marker;
         }
 
-        // Botón para ver todos los marcadores
+        // Función para crear polígonos con multimedia
+        function crearPoligono(geoJsonStr, nombre, videoUrl, audioUrl) {
+            try {
+                const geoJson = JSON.parse(geoJsonStr);
+                
+                // Determinar qué tipo de medio tenemos
+                const mediaUrl = videoUrl || audioUrl;
+                const isVideo = esVideo(mediaUrl);
+                
+                // Crear contenido del popup
+                let popupContent = `<div class="audio-container">`;
+                popupContent += `<div class="audio-title">${nombre || 'Área sonora'}</div>`;
+                
+                if (mediaUrl) {
+                    // Procesar URL de Google Drive
+                    let embedUrl = mediaUrl;
+                    if (mediaUrl.includes('drive.google.com')) {
+                        const match = mediaUrl.match(/[-\w]{25,}/);
+                        const fileID = match ? match[0] : null;
+                        if (fileID) {
+                            embedUrl = `https://drive.google.com/file/d/${fileID}/preview?embedded=true&hl=es`;
+                        }
+                    }
+                    
+                    if (isVideo) {
+                        popupContent += `
+                            <div class="video-container">
+                                <iframe class="media-iframe video-iframe" 
+                                        src="${embedUrl}" 
+                                        allow="autoplay"
+                                        frameborder="0"
+                                        allowfullscreen>
+                                </iframe>
+                            </div>
+                        `;
+                    } else {
+                        popupContent += `
+                            <iframe class="media-iframe audio-iframe" 
+                                    src="${embedUrl}" 
+                                    allow="autoplay"
+                                    frameborder="0">
+                            </iframe>
+                        `;
+                    }
+                } else {
+                    popupContent += `<p style="padding: 15px; margin: 0;">No hay contenido multimedia asociado</p>`;
+                }
+                
+                popupContent += `</div>`;
+                
+                // Crear el polígono con nuevo color azul
+                const polygonLayer = L.geoJSON(geoJson, {
+                    style: {
+                        color: '#3867d6',
+                        weight: 3,
+                        opacity: 0.8,
+                        fillColor: '#4b7bec',
+                        fillOpacity: 0.3
+                    },
+                    onEachFeature: function(feature, layer) {
+                        layer.bindPopup(popupContent, {
+                            className: 'custom-popup',
+                            maxWidth: isVideo ? 560 : 400
+                        });
+                    }
+                }).addTo(layerGroups.polygons);
+                
+                allPolygons.push(polygonLayer);
+                return polygonLayer;
+            } catch (e) {
+                console.error("Error al crear polígono:", e);
+                return null;
+            }
+        }
+
+        // Botón para ver todos los elementos
         document.getElementById('show-all').addEventListener('click', function() {
-            if (allMarkers.length > 0) {
-                const group = L.featureGroup(allMarkers);
-                map.fitBounds(group.getBounds(), {
-                    padding: [50, 50]
-                });
+            const activeLayers = [];
+            const activeMarkers = document.querySelector('.layer-option[data-layer="markers"]').classList.contains('active');
+            const activePolygons = document.querySelector('.layer-option[data-layer="polygons"]').classList.contains('active');
+            
+            if (activeMarkers && allMarkers.length > 0) {
+                activeLayers.push(...allMarkers);
+            }
+            
+            if (activePolygons && allPolygons.length > 0) {
+                activeLayers.push(...allPolygons);
+            }
+            
+            if (activeLayers.length > 0) {
+                const group = L.featureGroup(activeLayers);
+                map.fitBounds(group.getBounds(), { padding: [50, 50] });
             } else {
-                alert("No hay marcadores para mostrar");
+                alert("No hay elementos visibles para mostrar");
             }
         });
 
+        // Control de capas
+        document.querySelectorAll('.layer-option').forEach(option => {
+            option.addEventListener('click', function() {
+                const layer = this.dataset.layer;
+                
+                // Alternar estado activo
+                this.classList.toggle('active');
+                
+                // Mostrar/ocultar capa
+                if (layer === 'markers') {
+                    if (this.classList.contains('active')) {
+                        layerGroups.markers.addTo(map);
+                    } else {
+                        layerGroups.markers.remove();
+                    }
+                } else if (layer === 'polygons') {
+                    if (this.classList.contains('active')) {
+                        layerGroups.polygons.addTo(map);
+                    } else {
+                        layerGroups.polygons.remove();
+                    }
+                }
+            });
+        });
+
+        // Activar ambas capas por defecto
+        document.querySelectorAll('.layer-option').forEach(opt => opt.classList.add('active'));
+
         // Función para parsear la respuesta de Google Sheets
         function parseGoogleSheetJSON(responseText) {
-            const start = responseText.indexOf('(') + 1;
-            const end = responseText.lastIndexOf(')');
-            const jsonStr = responseText.substring(start, end);
-            return JSON.parse(jsonStr);
+            try {
+                const start = responseText.indexOf('(') + 1;
+                const end = responseText.lastIndexOf(')');
+                const jsonStr = responseText.substring(start, end);
+                return JSON.parse(jsonStr);
+            } catch (e) {
+                console.error("Error al parsear respuesta de Google Sheets:", e);
+                return { table: { rows: [] } };
+            }
         }
 
-        // Cargar GeoJSON con estilo mejorado
-        fetch('https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/bogota-localidades.geojson')
-            .then(res => res.json())
-            .then(data => {
-                const suba = data.features.find(f => 
-                    (f.properties.NOMBRE || f.properties.nom_loc || "").toUpperCase() === 'SUBA'
-                );
-                
-                if (suba) {
-                    const layer = L.geoJSON(suba, {
-                        style: {
-                            color: '#e67e22',
-                            weight: 3,
-                            opacity: 0.8,
-                            fillColor: '#f39c12',
-                            fillOpacity: 0.1,
-                            dashArray: '5, 5',
-                            dashOffset: '0'
-                        }
-                    }).addTo(map);
+        // Cargar datos iniciales
+        function cargarDatosIniciales() {
+            // Cargar contorno de Suba
+            fetch('https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/bogota-localidades.geojson')
+                .then(res => res.json())
+                .then(data => {
+                    const suba = data.features.find(f => 
+                        (f.properties.NOMBRE || f.properties.nom_loc || "").toUpperCase() === 'SUBA'
+                    );
                     
-                    map.fitBounds(layer.getBounds(), {
-                        padding: [50, 50],
-                        maxZoom: 14
-                    });
-                }
-                
-                // Cargar datos de Google Sheets
-                cargarDatosDeGoogleSheets();
-            })
-            .catch(error => {
-                console.error('Error al cargar GeoJSON:', error);
-                map.setView([4.7415, -74.0757], 14);
-                cargarDatosDeGoogleSheets();
-            });
-
-        // Función para cargar datos de Google Sheets
-        function cargarDatosDeGoogleSheets() {
-            const baseUrl = 'https://docs.google.com/spreadsheets/d/1PJbx4O2kEqKlWPwH49D7yizYIw-hbtn7ixm5-lZdtrU/gviz/tq?sheet=Hoja%201&tqx=out:json';
-            const url = baseUrl + '&nocache=' + Date.now();
-
-            fetch(url, { cache: 'no-store' })
+                    if (suba) {
+                        L.geoJSON(suba, {
+                            style: {
+                                color: '#e67e22',
+                                weight: 3,
+                                opacity: 0.8,
+                                fillColor: '#f39c12',
+                                fillOpacity: 0.1,
+                                dashArray: '5, 5'
+                            }
+                        }).addTo(map);
+                    }
+                })
+                .catch(console.error);
+            
+            // Cargar marcadores (Hoja 1)
+            const sheet1Url = 'https://docs.google.com/spreadsheets/d/1PJbx4O2kEqKlWPwH49D7yizYIw-hbtn7ixm5-lZdtrU/gviz/tq?sheet=Hoja%201&tqx=out:json';
+            
+            fetch(sheet1Url)
                 .then(res => res.text())
                 .then(text => {
                     const json = parseGoogleSheetJSON(text);
-                    const rows = json.table.rows;
-
-                    rows.forEach(row => {
+                    json.table.rows.forEach(row => {
                         const lat = parseFloat(row.c[0]?.v);
                         const lng = parseFloat(row.c[1]?.v);
                         const nombre = row.c[2]?.v || 'Sin nombre';
-                        const mediaUrl = row.c[4]?.v || '';
-
-                        if (!isNaN(lat) && !isNaN(lng) && mediaUrl) {
+                        const mediaUrl = row.c[4]?.v;
+                        
+                        if (!isNaN(lat) && !isNaN(lng)) {
                             crearMarcador(lat, lng, nombre, mediaUrl);
                         }
                     });
-
-                    // Ocultar loader cuando se cargan todos los datos
+                    
+                    // Cargar polígonos (Hoja 2)
+                    const sheet2Url = sheet1Url.replace('Hoja%201', 'Hoja%202');
+                    return fetch(sheet2Url);
+                })
+                .then(res => res.text())
+                .then(text => {
+                    const json = parseGoogleSheetJSON(text);
+                    json.table.rows.forEach(row => {
+                        const geoJson = row.c[0]?.v;
+                        const nombre = row.c[1]?.v;
+                        const videoUrl = row.c[2]?.v;
+                        const audioUrl = row.c[3]?.v;
+                        
+                        if (geoJson) {
+                            crearPoligono(geoJson, nombre, videoUrl, audioUrl);
+                        }
+                    });
+                    
+                    // Ocultar loader
                     loader.style.opacity = '0';
                     setTimeout(() => {
                         loader.style.display = 'none';
                         
-                        // Ajustar vista para mostrar todos los marcadores
-                        if (allMarkers.length > 0) {
-                            const group = L.featureGroup(allMarkers);
-                            map.fitBounds(group.getBounds(), {
-                                padding: [50, 50]
-                            });
+                        // Ajustar vista para mostrar todos los elementos
+                        const allElements = [...allMarkers, ...allPolygons];
+                        if (allElements.length > 0) {
+                            map.fitBounds(L.featureGroup(allElements).getBounds(), { padding: [50, 50] });
                         }
                     }, 500);
                 })
                 .catch(err => {
-                    console.error('Error al cargar la hoja de cálculo:', err);
-                    // Ocultar loader en caso de error
+                    console.error("Error al cargar datos:", err);
                     loader.style.opacity = '0';
-                    setTimeout(() => {
-                        loader.style.display = 'none';
-                    }, 500);
+                    setTimeout(() => loader.style.display = 'none', 500);
                 });
         }
+
+        // Iniciar carga de datos
+        cargarDatosIniciales();
     </script>
 </body>
 </html>
