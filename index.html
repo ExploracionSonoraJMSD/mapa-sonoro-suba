@@ -202,19 +202,13 @@
             aspect-ratio: 16/9;
         }
 
-        /* Estilos para el contenedor de video */
-        .video-container {
-            position: relative;
-            width: 100%;
-            overflow: hidden;
-        }
-
         /* Estilos para videos verticales */
         .video-iframe.vertical {
             aspect-ratio: 9/16;
             height: 70vh;
             max-height: 560px;
             min-height: 300px;
+            width: auto !important;
         }
 
         .leaflet-container a.leaflet-popup-close-button {
@@ -247,6 +241,7 @@
 
             .video-iframe.vertical {
                 height: 50vh !important;
+                width: 100% !important;
             }
 
             .audio-title {
@@ -377,7 +372,7 @@
         
         // Inicializar mapa con vista por defecto
         var map = L.map('map', {
-            zoomControl: false // Quitar controles de zoom predeterminados
+            zoomControl: false
         }).setView([4.7415, -74.0757], 13);
         
         // Reposicionar controles de zoom
@@ -430,12 +425,11 @@
 
         // Función para determinar si es video
         function esVideo(url) {
-            return url.includes('youtube.com') || url.includes('youtu.be') || 
-                   url.match(/\.(mp4|webm|ogg|mov)$/i) !== null;
+            return url.includes('drive.google.com') || url.match(/\.(mp4|webm|ogg|mov)$/i) !== null;
         }
 
-        // Función para crear marcadores con ajuste automático de orientación
-        function crearMarcador(lat, lng, nombre, mediaUrl) {
+        // Función para crear marcadores con orientación específica
+        function crearMarcador(lat, lng, nombre, mediaUrl, orientacion) {
             const icono = L.divIcon({
                 className: 'audio-marker',
                 html: esVideo(mediaUrl) ? 
@@ -445,7 +439,7 @@
                 iconAnchor: [18, 18]
             });
             
-            // Extraer ID de Google Drive o usar URL directa
+            // Extraer ID de Google Drive
             let embedUrl = mediaUrl;
             if (mediaUrl.includes('drive.google.com')) {
                 const match = mediaUrl.match(/[-\w]{25,}/);
@@ -458,13 +452,15 @@
             const isVideo = esVideo(embedUrl);
             let popupContent;
             
+            // Determinar si es vertical basado en el parámetro de orientación
+            const isVertical = orientacion && orientacion.toLowerCase() === 'vertical';
+            
             if (isVideo) {
-                // Para videos, usamos un contenedor flexible
                 popupContent = `
                     <div class="audio-container">
                         <div class="audio-title">${nombre}</div>
                         <div class="video-container">
-                            <iframe class="media-iframe video-iframe" 
+                            <iframe class="media-iframe video-iframe ${isVertical ? 'vertical' : ''}" 
                                     src="${embedUrl}" 
                                     allow="autoplay"
                                     frameborder="0"
@@ -474,7 +470,6 @@
                     </div>
                 `;
             } else {
-                // Para audio, mantenemos el formato actual
                 popupContent = `
                     <div class="audio-container">
                         <div class="audio-title">${nombre}</div>
@@ -490,72 +485,11 @@
             const marker = L.marker([lat, lng], {icon: icono})
                 .bindPopup(popupContent, {
                     className: 'custom-popup',
-                    maxWidth: isVideo ? 560 : 400
+                    maxWidth: isVideo ? (isVertical ? 360 : 560) : 400
                 })
                 .addTo(map);
 
             marker.on('popupopen', function(e) {
-                const popup = e.popup;
-                const iframe = popup.getElement().querySelector('iframe.video-iframe');
-                
-                if (iframe && isVideo) {
-                    // Función para detectar y ajustar la orientación del video
-                    const adjustVideoOrientation = () => {
-                        // Para videos de YouTube
-                        if (iframe.src.includes('youtube.com') || iframe.src.includes('youtu.be')) {
-                            // YouTube maneja bien su relación de aspecto
-                            iframe.classList.remove('vertical');
-                        } 
-                        // Para videos de Google Drive u otros
-                        else {
-                            // Intentamos detectar la orientación
-                            try {
-                                const tempIframe = document.createElement('iframe');
-                                tempIframe.src = iframe.src;
-                                tempIframe.style.display = 'none';
-                                document.body.appendChild(tempIframe);
-                                
-                                tempIframe.onload = function() {
-                                    try {
-                                        const video = tempIframe.contentDocument?.querySelector('video');
-                                        if (video) {
-                                            video.onloadedmetadata = function() {
-                                                const isVertical = video.videoHeight > video.videoWidth;
-                                                if (isVertical) {
-                                                    iframe.classList.add('vertical');
-                                                } else {
-                                                    iframe.classList.remove('vertical');
-                                                }
-                                                document.body.removeChild(tempIframe);
-                                            };
-                                        } else {
-                                            // Si no podemos detectar, asumimos horizontal
-                                            iframe.classList.remove('vertical');
-                                            document.body.removeChild(tempIframe);
-                                        }
-                                    } catch (e) {
-                                        // Si hay error de CORS, asumimos horizontal
-                                        iframe.classList.remove('vertical');
-                                        document.body.removeChild(tempIframe);
-                                    }
-                                };
-                            } catch (e) {
-                                // Si falla la creación del iframe temporal
-                                iframe.classList.remove('vertical');
-                            }
-                        }
-                    };
-                    
-                    // Ajustar inicialmente
-                    adjustVideoOrientation();
-                    
-                    // También ajustar cuando cambia el tamaño
-                    const resizeObserver = new ResizeObserver(() => {
-                        adjustVideoOrientation();
-                    });
-                    resizeObserver.observe(popup.getElement());
-                }
-                
                 setTimeout(() => {
                     map.invalidateSize();
                 }, 50);
@@ -637,9 +571,10 @@
                         const lng = parseFloat(row.c[1]?.v);
                         const nombre = row.c[2]?.v || 'Sin nombre';
                         const mediaUrl = row.c[4]?.v || '';
+                        const orientacion = row.c[5]?.v || 'horizontal'; // Sexta columna (F)
 
                         if (!isNaN(lat) && !isNaN(lng) && mediaUrl) {
-                            crearMarcador(lat, lng, nombre, mediaUrl);
+                            crearMarcador(lat, lng, nombre, mediaUrl, orientacion);
                         }
                     });
 
@@ -648,7 +583,6 @@
                     setTimeout(() => {
                         loader.style.display = 'none';
                         
-                        // Ajustar vista para mostrar todos los marcadores
                         if (allMarkers.length > 0) {
                             const group = L.featureGroup(allMarkers);
                             map.fitBounds(group.getBounds(), {
@@ -659,7 +593,6 @@
                 })
                 .catch(err => {
                     console.error('Error al cargar la hoja de cálculo:', err);
-                    // Ocultar loader en caso de error
                     loader.style.opacity = '0';
                     setTimeout(() => {
                         loader.style.display = 'none';
